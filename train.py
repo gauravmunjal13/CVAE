@@ -16,12 +16,17 @@ from tqdm import tqdm
 import utils
 
 
-def compute_loss(criterion, reconstructed_response_reshaped, response, 
+def compute_loss(criterion, dot_product_output, slate, 
                  z_mean, z_log_var, batch_size):
     '''
+    dot_product_output: shape [batch_size, slate_size, num_items]
+    slate: [batch_size, slate_size]
     '''
     annealing = 0.5
-    reconstruction_loss = criterion(reconstructed_response_reshaped, response) / batch_size
+    dot_product_output_reshaped = dot_product_output.permute(0,2,1)
+    # division by batch size not required as we are taking the average by default \
+    # in cross entropy loss 
+    reconstruction_loss = criterion(dot_product_output_reshaped, slate) 
     KL_loss = torch.mean(annealing*torch.sum( 
             torch.exp(z_log_var) + z_mean**2 -1 - z_log_var, 1) )
     return reconstruction_loss + KL_loss
@@ -54,12 +59,12 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
                                      Variable(slate), Variable(response), Variable(response_encoded)
         
         # forward pass
-        z_mean, z_log_var, reconstructed_slate, reconstructed_response_reshaped = model(user_repr, \
-                                                                                slate, response_encoded)
+        z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                      slate, response_encoded)
         
         # compute the loss
-        loss = compute_loss(criterion, reconstructed_response_reshaped, 
-                            response, z_mean, z_log_var, config["batch_size"])
+        loss = compute_loss(criterion, dot_product_output, 
+                            slate, z_mean, z_log_var, config["batch_size"])
         
         # zero the gradients
         optimizer.zero_grad()
@@ -111,12 +116,12 @@ def validation(model, data_loader, criterion, config, epoch):
                                      Variable(slate), Variable(response), Variable(response_encoded)
         
         # forward pass
-        z_mean, z_log_var, reconstructed_slate, reconstructed_response_reshaped = model(user_repr, \
-                                                                                slate, response_encoded)
+        z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                      slate, response_encoded)
         
         # compute the loss
-        loss = compute_loss(criterion, reconstructed_response_reshaped, 
-                            response, z_mean, z_log_var, config["batch_size"])
+        loss = compute_loss(criterion, dot_product_output, 
+                            slate, z_mean, z_log_var, config["batch_size"])
         
         # print statistics
         running_loss += loss.item()
@@ -153,7 +158,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
 
     epoch_loss = {"train_loss": [], "val_loss": []}
     loss_batches = {"train_loss": [], "val_loss": []}
-    best_val_loss = 1.0
+    best_val_loss = 100.0
 
     for epoch in range(args.num_epochs):
         # run one epoch

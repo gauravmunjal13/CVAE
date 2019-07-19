@@ -19,8 +19,8 @@ import evaluate
 if __name__ == '__main__':
     parser = ArgumentParser()
     # possible options are train or evaluate
-    parser.add_argument("--exp_type", dest="exp_type", type=str, default="evaluate")
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=20)
+    parser.add_argument("--exp_type", dest="exp_type", type=str, default="train")
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=1)
     # best or last
     parser.add_argument("--restore_file", dest="restore_file", type=str, default="best") 
     args = parser.parse_args()
@@ -122,9 +122,9 @@ if __name__ == '__main__':
     model_cvae = CVAE(config=model_config).to(device)
     print(model_cvae)
     # Or binary cross entropy loss
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.CrossEntropyLoss()
     # size_average is set to False, the losses are instead summed for each minibatch
-    criterion.size_average = False
+    #criterion.size_average = False
     learning_rate = 1e-3
     optimizer = torch.optim.Adam(model_cvae.parameters(), lr=learning_rate) 
     

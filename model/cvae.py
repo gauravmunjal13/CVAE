@@ -202,27 +202,29 @@ class CVAE(nn.Module):
         all_items_embedding = self.items_embedding(num_items_tensor)
         # dot_product: [batch_size, slate_size, num_items]
         # CORRECT AND VERIFIED IMPLEMENTATION
-        dot_product = torch.einsum("bkh, nh -> bkn", reconstructed_x_reshape, all_items_embedding)
+        dot_product_output = torch.einsum("bkh, nh -> bkn", reconstructed_x_reshape, all_items_embedding)
         
+        ##### no longer need, just for analysis #####
+        ##### begin
         # k headsoftmax layer, across the last dimension of [batch_size, slate_size, num_items] 
-        softmax_layer = self.softmax(dot_product)
+        softmax_layer = self.softmax(dot_product_output)
         
         # reconstructed_s shape: [batch_size, slate_size]
         # argmax to be done during inference only
+        
         reconstructed_slate = torch.argmax(softmax_layer, dim=2)
 
         # slate_reshaped: [batch_size, slate_size, 1]
         slate_reshaped = slate.view(-1,self.config["slate_size"],1)
-        
         # reconstructed_response: [batch_size, slate_size, 1]
         # Can be mentioned in implementation challanges
         # CORRECT AND VERIFIED IMPLEMENTATION
         reconstructed_response = torch.gather(softmax_layer, 2, slate_reshaped)
-        
         # reconstructed_response_reshaped: [batch_size, slate_size]
         reconstructed_response_reshaped = reconstructed_response.view(-1, self.config["slate_size"])
+        ##### end
         
-        return z_mean, z_log_var, reconstructed_slate, reconstructed_response_reshaped
+        return z_mean, z_log_var, dot_product_output
 
 
     def inference(self, user_repr, response_encoded, input_items):
