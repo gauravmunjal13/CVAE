@@ -16,20 +16,38 @@ from tqdm import tqdm
 import utils
 
 
+def compute_MSEloss(criterion, reconstructed_response_reshaped, response, 
+                 z_mean, z_log_var, prior_mean, prior_log_var, batch_size):
+    '''
+    '''
+    annealing = 0.5
+    reconstruction_loss = criterion(reconstructed_response_reshaped, response)
+    KL_loss = torch.mean(annealing*torch.sum(
+                (torch.exp(z_log_var) + (z_mean - prior_mean)**2)/torch.exp(prior_log_var) \
+                - 1 - z_log_var + prior_log_var,1))
+    
+    return reconstruction_loss, KL_loss
+
 def compute_loss(criterion, dot_product_output, slate, 
-                 z_mean, z_log_var, batch_size):
+                 z_mean, z_log_var,  prior_mean, prior_log_var, batch_size):
     '''
     dot_product_output: shape [batch_size, slate_size, num_items]
     slate: [batch_size, slate_size]
     '''
-    annealing = 0.5
+    annealing = 50
     dot_product_output_reshaped = dot_product_output.permute(0,2,1)
     # division by batch size not required as we are taking the average by default \
     # in cross entropy loss 
-    reconstruction_loss = criterion(dot_product_output_reshaped, slate) 
-    KL_loss = torch.mean(annealing*torch.sum( 
-            torch.exp(z_log_var) + z_mean**2 -1 - z_log_var, 1) )
-    return reconstruction_loss + KL_loss
+    # may be required to divide by slate size
+    reconstruction_loss = criterion(dot_product_output_reshaped, slate) / 10
+    
+    #KL_loss = torch.mean(annealing*torch.sum( 
+    #        torch.exp(z_log_var) + z_mean**2 -1 - z_log_var, 1) )
+    KL_loss = torch.mean(annealing*torch.sum(
+                (torch.exp(z_log_var) + (z_mean - prior_mean)**2)/torch.exp(prior_log_var) \
+                - 1 - z_log_var + prior_log_var,1))
+    
+    return reconstruction_loss, KL_loss
     
     
 
@@ -48,29 +66,46 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
     #with tqdm(total=len(data_loader.dataset)) as t:
     for i, data in enumerate(data_loader):
         # get the inputs
-        userId, user_repr, slate, response, response_encoded = (data[0].to(config["device"]),
+        userId, user_repr, slate, response, response_label, response_encoded = \
+                                  (data[0].to(config["device"]),
                                    data[1].to(config["device"]),
                                    data[2].to(config["device"]),
                                    data[3].to(config["device"]),
-                                   data[4].to(config["device"]))
+                                   data[4].to(config["device"]),
+                                   data[5].to(config["device"]))
         
         # is wrapping into variable type required?
-        userId, user_repr, slate, response, response_encoded = Variable(userId), Variable(user_repr), \
-                                     Variable(slate), Variable(response), Variable(response_encoded)
+        userId, user_repr, slate, response, response_label, response_encoded = \
+                            Variable(userId), Variable(user_repr), Variable(slate),\
+                            Variable(response), Variable(response_label), Variable(response_encoded)
         
         # forward pass
-        z_mean, z_log_var, dot_product_output = model(user_repr, \
-                                                      slate, response_encoded)
+        #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = model(user_repr, \
+        #                                              slate, response_label)
+        prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                      slate, response_label)
         
         # compute the loss
-        loss = compute_loss(criterion, dot_product_output, 
-                            slate, z_mean, z_log_var, config["batch_size"])
+        #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
+        #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+        reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
+                            slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+        loss = reconstruction_loss + KL_loss
         
         # zero the gradients
         optimizer.zero_grad()
         
+        # for gradient checking
+        #loss.register_hook(lambda grad: print(grad))
+        
         # do the backward pass
         loss.backward()
+        
+        # Gradient Check
+        # for 1st and last batch mainly
+        if i in [0,100,189]:
+            file_name = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis2/l1_l2_f_prior_epoch"+str(epoch)+"_batch"+str(i)+str(".pdf")
+            utils.plot_grad_flow(model.named_parameters(), file_name)
         
         # update the weights
         optimizer.step()
@@ -80,6 +115,8 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
         total_epoch_loss += loss.item()
         
         if i % 20 == (20-1):    # every 2000 mini-batches
+            print("reconstruction_loss: %.3f" % reconstruction_loss.item())
+            print("KL_loss: %.3f" % KL_loss.item())
             print('[%d, %5d] training loss: %.3f' % (epoch + 1, i + 1, running_loss / 20))
             epoch_losses.append(running_loss)
             running_loss = 0.0
@@ -87,6 +124,9 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
         ## update the average loss
         #t.set_postfix(loss='{:05.3f}'.format(total_epoch_loss/(i+1)))
         #t.update()
+    
+    file_name = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis2/l1_l2_f_prior_epoch"+str(epoch)+str(".pdf")
+    utils.plot_grad_flow(model.named_parameters(), file_name)
         
     return np.mean(total_epoch_loss/(i+1)), epoch_losses
 
@@ -105,23 +145,33 @@ def validation(model, data_loader, criterion, config, epoch):
     #with tqdm(total=len(data_loader.dataset)) as t:
     for i, data in enumerate(data_loader):
         # get the inputs
-        userId, user_repr, slate, response, response_encoded = (data[0].to(config["device"]),
+        userId, user_repr, slate, response, response_label, response_encoded = \
+                                  (data[0].to(config["device"]),
                                    data[1].to(config["device"]),
                                    data[2].to(config["device"]),
                                    data[3].to(config["device"]),
-                                   data[4].to(config["device"]))
+                                   data[4].to(config["device"]),
+                                   data[5].to(config["device"]))
         
         # is wrapping into variable type required?
-        userId, user_repr, slate, response, response_encoded = Variable(userId), Variable(user_repr), \
-                                     Variable(slate), Variable(response), Variable(response_encoded)
+        userId, user_repr, slate, response, response_label, response_encoded = \
+                            Variable(userId), Variable(user_repr), Variable(slate),\
+                            Variable(response), Variable(response_label), Variable(response_encoded)
         
         # forward pass
-        z_mean, z_log_var, dot_product_output = model(user_repr, \
-                                                      slate, response_encoded)
+        #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = model(user_repr, \
+        #                                              slate, response_label)
+        prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                      slate, response_label)
+        
         
         # compute the loss
-        loss = compute_loss(criterion, dot_product_output, 
-                            slate, z_mean, z_log_var, config["batch_size"])
+        #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
+        #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+        reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
+                            slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+        
+        loss = reconstruction_loss + KL_loss
         
         # print statistics
         running_loss += loss.item()
@@ -158,7 +208,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
 
     epoch_loss = {"train_loss": [], "val_loss": []}
     loss_batches = {"train_loss": [], "val_loss": []}
-    best_val_loss = 100.0
+    best_val_loss = 2.0
 
     for epoch in range(args.num_epochs):
         # run one epoch
@@ -167,6 +217,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
         # train_loss for each epoch
         train_epoch_loss, train_loss_batches = train(model, train_dataloader, 
                                                      criterion, optimizer, config, epoch)
+        
         epoch_loss["train_loss"].append(train_epoch_loss)
         loss_batches["train_loss"].append(train_loss_batches)
         # when to save the model is still not clear: during training the optimizer \
@@ -178,7 +229,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
         loss_batches["val_loss"].append(val_loss_batches)
 
         # check for the best model
-        is_best = val_loss<=best_val_loss
+        is_best = True #val_loss<=best_val_loss
         
         # Save weights, overwrite the last one and the new best one
         print("save_checkpoint")

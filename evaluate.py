@@ -69,10 +69,11 @@ def evaluation(model, args, config):
             user_repr = torch.tensor(get_user_repr_eval(test_user, config))
             
             # optimal response is getting max response
-            optimal_response_encoded = torch.Tensor([0,0,0,0,0,0,0,0,0,1,0])
+            #optimal_response_encoded = torch.Tensor([0,0,0,0,0,0,0,0,0,1,0])
+            optimal_response = torch.tensor([10])
                         
             recommended_slate = model.inference( 
-                                        user_repr, optimal_response_encoded, input_items)
+                                        user_repr, optimal_response, input_items)
             
             relevant = set(config['test_user_item_interaction_dict'][test_user])
             

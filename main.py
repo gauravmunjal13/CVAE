@@ -15,6 +15,7 @@ from model.cvae import CVAE
 from model.data_loader import MovieLensDataLoader
 import train
 import evaluate
+import utils
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -91,11 +92,11 @@ if __name__ == '__main__':
     model_config = {
     "num_users": num_users,
     "num_items": num_items,
-    "embedding_size": 16,
+    "embedding_size": 8,
     "slate_size": 10,
-    "hidden_dim": 64,
+    "hidden_dim": 128,
     "latent_dim": 16,
-    "response_dim": 11,
+    "response_dim": 11, # for total no. of possible responses
     "device": device,
     "model_dir": "./experiments/cvae/",
     "batch_size":  64
@@ -121,18 +122,27 @@ if __name__ == '__main__':
     
     model_cvae = CVAE(config=model_config).to(device)
     print(model_cvae)
-    # Or binary cross entropy loss
+    #criterion = torch.nn.MSELoss()
     criterion = torch.nn.CrossEntropyLoss()
     # size_average is set to False, the losses are instead summed for each minibatch
     #criterion.size_average = False
     learning_rate = 1e-3
     optimizer = torch.optim.Adam(model_cvae.parameters(), lr=learning_rate) 
     
+    '''for name, param in model_cvae.named_parameters():
+            if name in ["items_embedding.weight", "response_embedding.weight",
+                          "f_prior.linear1.weight", "f_prior.prior_mean.weight",
+                          "f_prior.prior_log_var.weight", "encoder.linear1.weight",
+                          "encoder.mu.weight", "'encoder.log_var.weight'",
+                          "decoder.linear1.weight", "decoder.linear3.weight"]:
+                print(name, param[0])'''
+    
     # train the model
     if args.exp_type == "train":
         train.train_and_val(model_cvae, train_dataloader, val_dataloader, \
                       criterion, optimizer, args, model_config)
-    
+
+                
     if args.exp_type == "evaluate":
         eval_config = {
             "num_items": num_items,

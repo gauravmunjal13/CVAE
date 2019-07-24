@@ -3,7 +3,9 @@ import os
 import shutil
 
 import torch
-
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.lines import Line2D
 
 # reference: cs230-standford code examples
 def save_checkpoint(state, is_best, checkpoint):
@@ -54,3 +56,37 @@ def save_dict_to_json(d, json_path):
         # We need to convert the values to float for json (it doesn't accept np.array, np.float, )
         d = {k:v for k, v in d.items()}
         json.dump(d, f, indent=4)
+    
+# reference: https://discuss.pytorch.org
+#https://lilianweng.github.io/lil-log/2018/08/12/from-autoencoder-to-beta-vae.html
+def plot_grad_flow(named_parameters, file_name = None):
+    '''Plots the gradients flowing through different layers in the net during training.
+    Can be used for checking for possible gradient vanishing / exploding problems.
+    
+    Usage: Plug this function in Trainer class after loss.backwards() as 
+    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
+    ave_grads = []
+    max_grads= []
+    layers = []
+    for name, param in named_parameters:
+        if(param.requires_grad) and ("bias" not in name):
+            layers.append(name)
+            ave_grads.append(param.grad.abs().mean())
+            max_grads.append(param.grad.abs().max())
+    print(ave_grads)
+    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
+    #plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
+    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(left=-1, right=len(ave_grads))
+    #plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
+    plt.xlabel("Layers")
+    plt.ylabel("Average Gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    #plt.legend([Line2D([0], [0], color="c", lw=4),
+    #            Line2D([0], [0], color="b", lw=4)], ['max-gradient', 'mean-gradient'])
+    #plt.legend([Line2D([0], [0], color="b", lw=4)],['mean-gradient'])
+    
+    if file_name is not None:
+        plt.savefig(file_name, bbox_inches='tight', dpi=1200)
+
