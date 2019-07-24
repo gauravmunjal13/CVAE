@@ -39,7 +39,7 @@ def compute_loss(criterion, dot_product_output, slate,
     # division by batch size not required as we are taking the average by default \
     # in cross entropy loss 
     # may be required to divide by slate size
-    reconstruction_loss = criterion(dot_product_output_reshaped, slate) / 10
+    reconstruction_loss = criterion(dot_product_output_reshaped, slate)
     
     #KL_loss = torch.mean(annealing*torch.sum( 
     #        torch.exp(z_log_var) + z_mean**2 -1 - z_log_var, 1) )
@@ -51,7 +51,7 @@ def compute_loss(criterion, dot_product_output, slate,
     
     
 
-def train(model, data_loader, criterion, optimizer, config, epoch):
+def train(model, data_loader, criterion, optimizer, config, epoch, file_loc):
     '''
     return the total epoch losses and every 2000 batches
     '''
@@ -62,6 +62,8 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
     epoch_losses = []
     # total loss for an epoch
     total_epoch_loss = 0.0
+    # reconstruction loss and KLloss
+    joint_loss = defaultdict(list)
 
     #with tqdm(total=len(data_loader.dataset)) as t:
     for i, data in enumerate(data_loader):
@@ -90,7 +92,7 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
         #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
         reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
                             slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
-        loss = reconstruction_loss + KL_loss
+        loss = reconstruction_loss 
         
         # zero the gradients
         optimizer.zero_grad()
@@ -104,7 +106,8 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
         # Gradient Check
         # for 1st and last batch mainly
         if i in [0,100,189]:
-            file_name = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis2/l1_l2_f_prior_epoch"+str(epoch)+"_batch"+str(i)+str(".pdf")
+            graph_type = "grad_flow"
+            file_name = file_loc+graph_type+"_epoch"+str(epoch)+"_batch"+str(i)+str(".pdf")
             utils.plot_grad_flow(model.named_parameters(), file_name)
         
         # update the weights
@@ -118,6 +121,8 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
             print("reconstruction_loss: %.3f" % reconstruction_loss.item())
             print("KL_loss: %.3f" % KL_loss.item())
             print('[%d, %5d] training loss: %.3f' % (epoch + 1, i + 1, running_loss / 20))
+            key = str(epoch+1)+"_"+str(i+1)
+            joint_loss[key] = (reconstruction_loss.item(),KL_loss.item())             
             epoch_losses.append(running_loss)
             running_loss = 0.0
         
@@ -125,10 +130,11 @@ def train(model, data_loader, criterion, optimizer, config, epoch):
         #t.set_postfix(loss='{:05.3f}'.format(total_epoch_loss/(i+1)))
         #t.update()
     
-    file_name = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis2/l1_l2_f_prior_epoch"+str(epoch)+str(".pdf")
+    graph_type = "grad_flow"
+    file_name = file_loc+graph_type+"_epoch"+str(epoch)+str(".pdf")
     utils.plot_grad_flow(model.named_parameters(), file_name)
         
-    return np.mean(total_epoch_loss/(i+1)), epoch_losses
+    return np.mean(total_epoch_loss/(i+1)), epoch_losses, joint_loss
 
 def validation(model, data_loader, criterion, config, epoch):
     '''
@@ -169,9 +175,9 @@ def validation(model, data_loader, criterion, config, epoch):
         #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
         #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
         reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
-                            slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+                            slate, z_mean, z_log_var, prior_mean, prior_log_var, config["batch_size"])
         
-        loss = reconstruction_loss + KL_loss
+        loss = reconstruction_loss 
         
         # print statistics
         running_loss += loss.item()
@@ -206,20 +212,27 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
     print("len(train_dataloader.dataset)", len(train_dataloader.dataset))
     print("len(val_dataloader.dataset)", len(val_dataloader.dataset))
 
+    # loss file: specify the analysis no.
+    file_loc = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis3/"
+    
     epoch_loss = {"train_loss": [], "val_loss": []}
     loss_batches = {"train_loss": [], "val_loss": []}
-    best_val_loss = 2.0
+    best_val_loss = 2000.0
+    train_joint_loss = defaultdict(list)
 
     for epoch in range(args.num_epochs):
         # run one epoch
         print("Epoch {}/{}".format(epoch + 1, args.num_epochs))
         # need to get the loss from the training too
         # train_loss for each epoch
-        train_epoch_loss, train_loss_batches = train(model, train_dataloader, 
-                                                     criterion, optimizer, config, epoch)
+        # need to pass the file_loc to do gradient checking during training
+        train_epoch_loss, train_loss_batches, joint_loss = train(model, train_dataloader, 
+                                                     criterion, optimizer, config, epoch, file_loc)
         
         epoch_loss["train_loss"].append(train_epoch_loss)
         loss_batches["train_loss"].append(train_loss_batches)
+        for key, item in joint_loss.items():
+            train_joint_loss[key] = item
         # when to save the model is still not clear: during training the optimizer \
         # will change the weights of the model. Seems like save the latest weights \
         # and the best one
@@ -250,3 +263,8 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
 
     all_epoch_loss_json_file = os.path.join(config["exp_save_models_dir"], "all_epoch_loss.json")
     utils.save_dict_to_json(epoch_loss, all_epoch_loss_json_file)
+    
+    # plot the stats
+    graph_type = "train_joint_loss_stats"
+    file_name = file_loc+graph_type+str(".pdf")
+    utils.plot_joint_loss_stats(train_joint_loss, file_name)

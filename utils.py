@@ -69,11 +69,14 @@ def plot_grad_flow(named_parameters, file_name = None):
     max_grads= []
     layers = []
     for name, param in named_parameters:
+        if param.grad is None:
+            continue
         if(param.requires_grad) and ("bias" not in name):
             layers.append(name)
             ave_grads.append(param.grad.abs().mean())
             max_grads.append(param.grad.abs().max())
     print(ave_grads)
+    
     plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
     #plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
     plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
@@ -89,4 +92,24 @@ def plot_grad_flow(named_parameters, file_name = None):
     
     if file_name is not None:
         plt.savefig(file_name, bbox_inches='tight', dpi=1200)
-
+        
+def plot_joint_loss_stats(joint_loss, file_name = None):
+    # Plot the change in the validation and training set error over training.
+    fig_1 = plt.figure(figsize=(8, 4))
+    ax_1 = fig_1.add_subplot(111)
+    keys = []
+    reconst_loss = []
+    KLloss = []
+    for key, joint_loss in joint_loss.items():
+        keys.append(key)
+        reconst_loss.append(joint_loss[0])
+        KLloss.append(joint_loss[1])
+    ax_1.plot(keys, reconst_loss, label="Reconstruction Loss")
+    ax_1.plot(keys, KLloss, label="KL Loss")
+    ax_1.legend(loc=0)
+    ax_1.set_xlabel('Epoch_batch number')
+    plt.xticks(rotation="vertical")
+    
+    if file_name is not None:
+        fig_1.savefig(file_name, bbox_inches='tight', dpi=1200)
+    

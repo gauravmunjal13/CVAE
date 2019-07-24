@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     # possible options are train or evaluate
     parser.add_argument("--exp_type", dest="exp_type", type=str, default="train")
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=1)
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=2)
     # best or last
     parser.add_argument("--restore_file", dest="restore_file", type=str, default="best") 
     args = parser.parse_args()
