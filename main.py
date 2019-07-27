@@ -20,10 +20,10 @@ import utils
 if __name__ == '__main__':
     parser = ArgumentParser()
     # possible options are train or evaluate
-    parser.add_argument("--exp_type", dest="exp_type", type=str, default="train")
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=2)
+    parser.add_argument("--exp_type", dest="exp_type", type=str, default="evaluate")
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=40)
     # best or last
-    parser.add_argument("--restore_file", dest="restore_file", type=str, default="best") 
+    parser.add_argument("--restore_file", dest="restore_file", type=str, default="last") 
     args = parser.parse_args()
 
     # set-up the configuration parameters
@@ -118,8 +118,12 @@ if __name__ == '__main__':
     model_config["exp_logs_dir"] = exp_logs
     model_config["exp_save_models_dir"] = exp_saved_models
     
-    ##### define the model #####
+    # file path for gradient checking and plotting
+    file_loc = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis2/"
+    model_config["file_loc"] = file_loc
     
+    
+    ##### define the model #####
     model_cvae = CVAE(config=model_config).to(device)
     print(model_cvae)
     #criterion = torch.nn.MSELoss()

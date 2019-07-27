@@ -107,7 +107,7 @@ class Decoder(nn.Module):
         hidden1 = F.relu(self.linear1(z))
         hidden2 = F.relu(self.linear2(hidden1))
         # shape of reconstructed_x [batch_size, input_dim]
-        reconstructed_x = F.relu(self.linear3(hidden2))
+        reconstructed_x = self.linear3(hidden2)
 
         return reconstructed_x
 
@@ -274,10 +274,11 @@ class CVAE(nn.Module):
 
     def inference(self, user_repr, response_label, input_items):
         '''
+        Inference module is desinged for a single user
         input:
          user_repr: tensor object for a single user interactions, \
             i.e. item indicies
-         response_encoded: tensor for the optimal response
+         response_label: tensor int object for the optimal response
          input_items: indices of the items not interacted
         '''
         SAFE_POINT = 30 # to counter for the seen interactions
@@ -298,7 +299,7 @@ class CVAE(nn.Module):
         
 
         # sampled_z: shape [embedding_size]
-        #z = torch.randn(self.config["latent_dim"])
+        #sampled_z = torch.randn(self.config["latent_dim"]) # in case of standard normal
         sampled_z = self._sample_latent(prior_mean, prior_log_var)
         
         input_z = torch.cat((sampled_z, conditioning_vector), dim=0)
@@ -322,13 +323,13 @@ class CVAE(nn.Module):
         dot_product = torch.einsum("kh, nh -> kn", reconstructed_x_reshape, all_items_embedding)
         
         # k headsoftmax layer, across the last dimension of [slate_size, num_items] 
-        softmax_layer = F.softmax(dot_product)
+        #softmax_layer = F.softmax(dot_product)
         
         # argmax to be done during inference probably
         #reconstructed_slate = torch.argmax(softmax_layer, dim=1)
         
         # reconstructed_slate shape: [slate_size, k=100]
-        _, reconstructed_slate = torch.topk(softmax_layer,k=SAFE_POINT, dim=1)
+        _, reconstructed_slate = torch.topk(dot_product,k=SAFE_POINT, dim=1)
         recommended_slate = []
         for i in range(slate_size):
             rec_item = reconstructed_slate[i].numpy()
