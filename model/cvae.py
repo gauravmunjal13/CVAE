@@ -171,6 +171,42 @@ class CVAE(nn.Module):
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
         self.softmax = nn.Softmax(dim=2)
+        
+        # initialize weights here:
+        self._init_weight_() # intended for internal use
+        
+    def _init_weight_(self):
+        # embeddings
+        
+        #nn.init.normal_(self.items_embedding.weight, std = 0.01)
+        #nn.init.normal_(self.response_embedding.weight, std = 0.01)
+        '''
+        # encoder
+        nn.init.xavier_normal_(self.encoder.linear1.weight)
+        nn.init.normal_(self.encoder.linear1.bias, std=0.01)
+        nn.init.xavier_normal_(self.encoder.linear2.weight)
+        nn.init.normal_(self.encoder.linear2.bias, std=0.01)
+        nn.init.xavier_normal_(self.encoder.mu.weight)
+        nn.init.normal_(self.encoder.mu.bias, std=0.01)
+        nn.init.xavier_normal_(self.encoder.log_var.weight)
+        nn.init.normal_(self.encoder.log_var.bias, std=0.01)
+        # decoder
+        nn.init.xavier_normal_(self.decoder.linear1.weight)
+        nn.init.normal_(self.decoder.linear1.bias, std=0.01)
+        nn.init.xavier_normal_(self.decoder.linear2.weight)
+        nn.init.normal_(self.decoder.linear2.bias, std=0.01)
+        nn.init.xavier_normal_(self.decoder.linear3.weight)
+        nn.init.normal_(self.decoder.linear3.bias, std=0.01)
+        # f_prior
+        nn.init.xavier_normal_(self.f_prior.linear1.weight)
+        nn.init.normal_(self.f_prior.linear1.bias, std=0.01)
+        nn.init.xavier_normal_(self.f_prior.linear2.weight)
+        nn.init.normal_(self.f_prior.linear2.bias, std=0.01)
+        nn.init.xavier_normal_(self.f_prior.prior_mean.weight)
+        nn.init.normal_(self.f_prior.prior_mean.bias, std=0.01)
+        nn.init.xavier_normal_(self.f_prior.prior_log_var.weight)
+        nn.init.normal_(self.f_prior.prior_log_var.bias, std=0.01)
+        '''
 
     def _sample_latent(self, mean, log_var):
         '''
@@ -220,7 +256,7 @@ class CVAE(nn.Module):
         
         # for unknown batch_size
         # slate_embedding_vector: shape [batch_size, slate_size*embedding_size] 
-        # CROSS-CHECK
+        # CROSS-CHECK: DONE 
         slate_embedding_vector = slate_embedding.view(-1, 
                                         self.config["slate_size"]*self.config["embedding_size"]) 
         
@@ -238,7 +274,7 @@ class CVAE(nn.Module):
         reconstructed_x = self.decoder(input_z)
         
         # reconstructed_x_reshape: shape [batch_size, slate_size, embedding_size]
-        # CROSS-CHECK
+        # CROSS-CHECK: DONE
         reconstructed_x_reshape = reconstructed_x.view(-1,self.config["slate_size"], self.config["embedding_size"])
 
         # dot-product layer
@@ -249,7 +285,7 @@ class CVAE(nn.Module):
         # CORRECT AND VERIFIED IMPLEMENTATION
         dot_product_output = torch.einsum("bkh, nh -> bkn", reconstructed_x_reshape, all_items_embedding)
         
-        ##### no longer need, just for analysis #####
+        ##### no longer needed, just for analysis #####
         ##### begin
         # k headsoftmax layer, across the last dimension of [batch_size, slate_size, num_items] 
         # CHECK AND VERIFIED
@@ -272,7 +308,7 @@ class CVAE(nn.Module):
         #return prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped
         return prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output
 
-    def inference(self, user_repr, response_label, input_items):
+    def inference(self, user_repr, response_label, input_items, config):
         '''
         Inference module is desinged for a single user
         input:
@@ -281,8 +317,8 @@ class CVAE(nn.Module):
          response_label: tensor int object for the optimal response
          input_items: indices of the items not interacted
         '''
-        SAFE_POINT = 30 # to counter for the seen interactions
-        slate_size = 10 
+        SAFE_POINT = 40 # to counter for the seen interactions
+        slate_size = config["slate_size"] ## Hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee 
         # notice the dim here, this time no batch is there
         # user: [embedding_size]
         # This is a MOOT point to mention
@@ -329,14 +365,14 @@ class CVAE(nn.Module):
         #reconstructed_slate = torch.argmax(softmax_layer, dim=1)
         
         # reconstructed_slate shape: [slate_size, k=100]
-        _, reconstructed_slate = torch.topk(dot_product,k=SAFE_POINT, dim=1)
+        _, reconstructed_slate = torch.topk(dot_product, k=SAFE_POINT, dim=1)
         recommended_slate = []
         for i in range(slate_size):
             rec_item = reconstructed_slate[i].numpy()
             mask = np.isin(rec_item, input_items)
             rec_item = rec_item[mask]
             # take the top unseen item as a recommendation for that slate position
-            for j in range(slate_size):
+            for j in range(i-1):
                 item = rec_item[j]
                 if item not in recommended_slate:
                     recommended_slate.append(item)

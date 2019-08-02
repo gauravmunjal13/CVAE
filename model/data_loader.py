@@ -21,7 +21,7 @@ class CustomDataset(Dataset):
         self.response = torch.tensor(data_pd['response'].apply(ast.literal_eval), dtype=torch.float32)
         self.response_label = torch.tensor(data_pd['response_label'].values)
         # torch.Tensor instead of torch.tensor will be userful in cat with user_embedding later on
-        self.response_encoded = torch.Tensor(data_pd['response_encoded'].apply(ast.literal_eval))
+        #self.response_encoded = torch.Tensor(data_pd['response_encoded'].apply(ast.literal_eval))
         self.transforms = transforms
         
     def __getitem__(self, index):
@@ -30,9 +30,10 @@ class CustomDataset(Dataset):
         slate = self.slate[index]
         response = self.response[index]
         response_label = self.response_label[index]
-        response_encoded = self.response_encoded[index]
+        #response_encoded = self.response_encoded[index]
         # the type of return is single entity: is it correct?
-        return (userId, user_repr, slate, response, response_label, response_encoded)
+        #return (userId, user_repr, slate, response, response_label, response_encoded)
+        return (userId, user_repr, slate, response, response_label)
 
     def __len__(self):
         count = self.userId.shape[0]

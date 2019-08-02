@@ -33,6 +33,7 @@ def evaluation(model, args, config):
             train_user_item_interaction_dict: to create the user_repr
             test_user_item_interaction_dict: for precision cal
             exp_save_models_dir: to load the model from this place
+            slate_size:
     output:
         precision: prec of the model
         recall: 
@@ -51,6 +52,7 @@ def evaluation(model, args, config):
     precision = defaultdict(list) # indexed by the user
     recall = defaultdict(list)
     cold_start_user_counter = 0
+    prec_rec_user_dict = defaultdict(dict)
     
     with torch.no_grad(): # what is the use of this?
     # do for each user
@@ -72,9 +74,9 @@ def evaluation(model, args, config):
             # optimal response is getting max response
             #optimal_response_encoded = torch.Tensor([0,0,0,0,0,0,0,0,0,1,0])
             optimal_response = torch.tensor([5])
-                        
+            
             recommended_slate = model.inference( 
-                                        user_repr, optimal_response, input_items)
+                                        user_repr, optimal_response, input_items, config)
             
             relevant = set(config['test_user_item_interaction_dict'][test_user])
             
@@ -84,13 +86,33 @@ def evaluation(model, args, config):
             
             rec_den = len(relevant)
             recall[test_user] = num/rec_den
-               
+            
             print("test_user: precision[test_user]", test_user, precision[test_user])
             print("test_user: recall[test_user]", test_user, recall[test_user])
             
-        print("Precision: ",sum(prec for prec in precision.values())/len(precision))
-        print("Recall: ",sum(rec for rec in recall.values())/len(recall))
+            prec_rec_user_dict[test_user] = {"prec": num/prec_den, "rec": num/rec_den, 
+                    "num_train_interactions": len(config["train_user_item_interaction_dict"][test_user]),
+                    "num_test_interactions": len(config["test_user_item_interaction_dict"][test_user])}
+        
+        Precision = sum(prec for prec in precision.values())/len(precision)
+        Recall = sum(rec for rec in recall.values())/len(recall)
+        
+        if args.exp_type == "evaluate":
+            local_prec = 0
+            local_rec = 0
+            local_counter = 0
+            for key, item in prec_rec_user_dict.items():
+                if item["num_test_interactions"] >= config["slate_size"]:
+                    local_prec += item["prec"]
+                    #local_rec += item["rec"]
+                    local_counter += 1
+            print("Local prec:", local_prec/local_counter)
+            #print("Local rec:", local_rec/local_counter)
+            
+        
+        #print("Precision: ", sum(prec for prec in precision.values())/len(precision))
+        print("Recall: ", sum(rec for rec in recall.values())/len(recall))
         print("cold_start_user_counter", cold_start_user_counter)
         
-        
+        return Precision, Recall, prec_rec_user_dict
         
