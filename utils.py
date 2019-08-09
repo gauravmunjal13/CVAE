@@ -76,14 +76,16 @@ def plot_grad_flow(named_parameters, file_name = None):
             ave_grads.append(param.grad.abs().mean())
             max_grads.append(param.grad.abs().max())    
     
+    plt.rc('xtick',labelsize=15)
+    plt.rc('ytick',labelsize=15)
     plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
     #plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
     plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
     plt.xlim(left=-1, right=len(ave_grads))
-    #plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
-    plt.xlabel("Layers")
-    plt.ylabel("Average Gradient")
-    plt.title("Gradient flow")
+    plt.ylim(bottom = 0.00, top=0.008) # zoom in on the lower gradient regions
+    plt.xlabel("Layers", fontsize=17)
+    plt.ylabel("Average Gradient", fontsize=17)
+    plt.title("Gradient flow", fontsize=17)
     plt.grid(True)
     #plt.legend([Line2D([0], [0], color="c", lw=4),
     #            Line2D([0], [0], color="b", lw=4)], ['max-gradient', 'mean-gradient'])
@@ -94,6 +96,9 @@ def plot_grad_flow(named_parameters, file_name = None):
         
 def plot_loss_stats(train_val_loss, loss_type = "Loss", file_name = None):
     # Plot the change in the validation and training set error over training.
+    plt.rc('xtick',labelsize=15)
+    plt.rc('ytick',labelsize=15)
+
     fig_1 = plt.figure(figsize=(8, 4))
     ax_1 = fig_1.add_subplot(111)
     
@@ -102,10 +107,10 @@ def plot_loss_stats(train_val_loss, loss_type = "Loss", file_name = None):
     ax_1.plot(np.arange(len(train_val_loss["train_loss"]))+1,
               train_val_loss["val_loss"], label="Val loss")
     
-    ax_1.legend(loc=0)
-    ax_1.set_title(loss_type)
-    ax_1.set_xlabel('Epoch number')
-    ax_1.set_ylabel("Loss")
+    ax_1.legend(loc=0, prop={'size': 17})
+    ax_1.set_title(loss_type, fontsize=17)
+    ax_1.set_xlabel('Epoch number', fontsize=17)
+    ax_1.set_ylabel("Loss", fontsize=17)
     #plt.xticks(rotation="vertical")
     
     if file_name is not None:

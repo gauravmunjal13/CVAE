@@ -35,7 +35,7 @@ def compute_loss(criterion, dot_product_output, slate,
     slate: [batch_size, slate_size]
     '''
     #annealing_start = 4
-    annealing = 20 #annealing_start*(epoch*10+1)
+    annealing = 8 #annealing_start*(epoch*10+1)
     dot_product_output_reshaped = dot_product_output.permute(0,2,1)
     # division by batch size not required as we are taking the average by default \
     # in cross entropy loss 
@@ -122,11 +122,11 @@ def train(model, data_loader, criterion, optimizer, config, epoch, file_loc):
         total_KL_loss += KL_loss.item()
         
         
-        if i % 40 == (40-1):
+        if i % 20 == (20-1):
             print("reconstruction_loss: %.3f" % reconstruction_loss.item())
             print("KL_loss: %.3f" % KL_loss.item())
-            print('[%d, %5d] training loss: %.3f' % (epoch + 1, i + 1, running_loss / 40))
-            batch_loss = running_loss/40
+            print('[%d, %5d] training loss: %.3f' % (epoch + 1, i + 1, running_loss / 20))
+            batch_loss = running_loss/20
             epoch_losses.append(batch_loss)
             running_loss = 0.0                        
         
@@ -245,7 +245,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
         # need to pass the file_loc to do gradient checking during training
         
         train_epoch_loss, train_loss_batches, train_reconstruction_loss, train_KL_loss = train(
-                model, train_dataloader, criterion, optimizer, config, epoch, config["file_loc"])
+                model, train_dataloader, criterion, optimizer, config, epoch, config["exp_logs_dir"])
         
         epoch_loss["train_loss"].append(train_epoch_loss)
         loss_batches["train_loss"].append(train_loss_batches)
@@ -298,13 +298,19 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
     
     # plot the stats
     graph_type = "epoch_loss"
-    file_name = config["file_loc"]+graph_type+str(".pdf")
+    file_name = config["exp_logs_dir"]+graph_type+str(".pdf")
     utils.plot_loss_stats(epoch_loss, "Total Epoch Loss", file_name)
     
     graph_type = "reconstruction_loss"
-    file_name = config["file_loc"]+graph_type+str(".pdf")
+    file_name = config["exp_logs_dir"]+graph_type+str(".pdf")
     utils.plot_loss_stats(reconstruction_loss, "Reconstruction Loss", file_name)
+    #save the logs
+    reconstruction_loss_json_file = os.path.join(config["exp_save_models_dir"], "reconstruction_loss.json")
+    utils.save_dict_to_json(reconstruction_loss, reconstruction_loss_json_file)
     
-    graph_type = "kl_loss"
-    file_name = config["file_loc"]+graph_type+str(".pdf")
+    graph_type = "kL_loss"
+    file_name = config["exp_logs_dir"]+graph_type+str(".pdf")
     utils.plot_loss_stats(KL_loss, "KL Loss", file_name)
+    KL_loss_json_file = os.path.join(config["exp_save_models_dir"], "kL_loss.json")
+    utils.save_dict_to_json(KL_loss, KL_loss_json_file)
+    

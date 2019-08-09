@@ -167,6 +167,7 @@ class CVAE(nn.Module):
         #self.users_embedding = nn.Embedding(config['num_users'], config['embedding_size'])
         self.items_embedding = nn.Embedding(config["num_items"], config["embedding_size"])
         self.response_embedding = nn.Embedding(config["response_dim"], config["embedding_size"])
+        self.users_embedding = nn.Embedding(config["num_users"], config["embedding_size"])
         self.f_prior = FPrior(config)
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
@@ -178,35 +179,42 @@ class CVAE(nn.Module):
     def _init_weight_(self):
         # embeddings
         
+        nn.init.xavier_uniform_(self.items_embedding.weight)
+        nn.init.xavier_uniform_(self.response_embedding.weight)
+        nn.init.xavier_uniform_(self.users_embedding.weight)
+        # xavier uniform just delay the convergence in comparison to standard normal
         #nn.init.normal_(self.items_embedding.weight, std = 0.01)
         #nn.init.normal_(self.response_embedding.weight, std = 0.01)
-        '''
+        
+        
         # encoder
-        nn.init.xavier_normal_(self.encoder.linear1.weight)
-        nn.init.normal_(self.encoder.linear1.bias, std=0.01)
-        nn.init.xavier_normal_(self.encoder.linear2.weight)
-        nn.init.normal_(self.encoder.linear2.bias, std=0.01)
-        nn.init.xavier_normal_(self.encoder.mu.weight)
-        nn.init.normal_(self.encoder.mu.bias, std=0.01)
-        nn.init.xavier_normal_(self.encoder.log_var.weight)
-        nn.init.normal_(self.encoder.log_var.bias, std=0.01)
+        nn.init.xavier_uniform_(self.encoder.linear1.weight)
+        #nn.init.normal_(self.encoder.linear1.bias, std=0.01)
+        nn.init.xavier_uniform_(self.encoder.linear2.weight)
+        #nn.init.normal_(self.encoder.linear2.bias, std=0.01)
+        nn.init.xavier_uniform_(self.encoder.mu.weight)
+        #nn.init.normal_(self.encoder.mu.bias, std=0.01)
+        nn.init.xavier_uniform_(self.encoder.log_var.weight)
+        #nn.init.normal_(self.encoder.log_var.bias, std=0.01)
+    
         # decoder
-        nn.init.xavier_normal_(self.decoder.linear1.weight)
-        nn.init.normal_(self.decoder.linear1.bias, std=0.01)
-        nn.init.xavier_normal_(self.decoder.linear2.weight)
-        nn.init.normal_(self.decoder.linear2.bias, std=0.01)
-        nn.init.xavier_normal_(self.decoder.linear3.weight)
-        nn.init.normal_(self.decoder.linear3.bias, std=0.01)
+        nn.init.xavier_uniform_(self.decoder.linear1.weight)
+        #nn.init.normal_(self.decoder.linear1.bias, std=0.01)
+        nn.init.xavier_uniform_(self.decoder.linear2.weight)
+        #nn.init.normal_(self.decoder.linear2.bias, std=0.01)
+        nn.init.xavier_uniform_(self.decoder.linear3.weight)
+        #nn.init.normal_(self.decoder.linear3.bias, std=0.01)
+        
         # f_prior
-        nn.init.xavier_normal_(self.f_prior.linear1.weight)
-        nn.init.normal_(self.f_prior.linear1.bias, std=0.01)
-        nn.init.xavier_normal_(self.f_prior.linear2.weight)
-        nn.init.normal_(self.f_prior.linear2.bias, std=0.01)
-        nn.init.xavier_normal_(self.f_prior.prior_mean.weight)
-        nn.init.normal_(self.f_prior.prior_mean.bias, std=0.01)
-        nn.init.xavier_normal_(self.f_prior.prior_log_var.weight)
-        nn.init.normal_(self.f_prior.prior_log_var.bias, std=0.01)
-        '''
+        nn.init.xavier_uniform_(self.f_prior.linear1.weight)
+        #nn.init.normal_(self.f_prior.linear1.bias, std=0.01)
+        nn.init.xavier_uniform_(self.f_prior.linear2.weight)
+        #nn.init.normal_(self.f_prior.linear2.bias, std=0.01)
+        nn.init.xavier_uniform_(self.f_prior.prior_mean.weight)
+        #nn.init.normal_(self.f_prior.prior_mean.bias, std=0.01)
+        nn.init.xavier_uniform_(self.f_prior.prior_log_var.weight)
+        #nn.init.normal_(self.f_prior.prior_log_var.bias, std=0.01)
+        
 
     def _sample_latent(self, mean, log_var):
         '''
@@ -226,7 +234,7 @@ class CVAE(nn.Module):
         r: response tensor in one-hot vector representation [batch_size, response_dim]
         '''
         # user: [batch_size, embedding_size]
-        # Padding could be an easier option
+        # Padding could be an easier opCVAEtion
         user = torch.empty((0,self.config["embedding_size"]))
         for i in range(user_repr.shape[0]):
             # required a numpy array for np.where with only condition as argument, \
@@ -366,18 +374,21 @@ class CVAE(nn.Module):
         
         # reconstructed_slate shape: [slate_size, k=100]
         _, reconstructed_slate = torch.topk(dot_product, k=SAFE_POINT, dim=1)
+        #print(reconstructed_slate)
         recommended_slate = []
+        #print(reconstructed_slate)
         for i in range(slate_size):
             rec_item = reconstructed_slate[i].numpy()
             mask = np.isin(rec_item, input_items)
             rec_item = rec_item[mask]
+            #recommended_slate = rec_item[:10]
             # take the top unseen item as a recommendation for that slate position
-            for j in range(i-1):
+            for j in range(SAFE_POINT):
                 item = rec_item[j]
                 if item not in recommended_slate:
                     recommended_slate.append(item)
                     break
-                
+               
         return recommended_slate
     
     

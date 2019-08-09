@@ -21,9 +21,9 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     # possible options are train or evaluate
     parser.add_argument("--exp_type", dest="exp_type", type=str, default="evaluate")
-    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=40)
-    # best or last
-    parser.add_argument("--restore_file", dest="restore_file", type=str, default="last") 
+    parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=30)
+    # "best": for test evaluation or "last": while training
+    parser.add_argument("--restore_file", dest="restore_file", type=str, default="best") 
     args = parser.parse_args()
 
     # set-up the configuration parameters
@@ -98,10 +98,10 @@ if __name__ == '__main__':
     "num_users": num_users,
     "num_items": num_items,
     "embedding_size": 8,
-    "slate_size": 5,
-    "hidden_dim": 32,
+    "slate_size": 10, # FOR DIFFERENT SLATE SIZES
+    "hidden_dim": 128,
     "latent_dim": 16,
-    "response_dim": 6, # for total no. of possible responses
+    "response_dim": 11, # FOR DIFFERENT SLATE SIZES
     "device": device,
     "model_dir": "./experiments/cvae/",
     "batch_size":  128
@@ -111,12 +111,12 @@ if __name__ == '__main__':
         os.mkdir(model_config["model_dir"])
         
     # create folder for the logs of the experiment
-    exp_logs = os.path.join(model_config["model_dir"], "output_logs")
+    exp_logs = os.path.join(model_config["model_dir"], "output_logs/analysis7/")
     if not os.path.exists(exp_logs):
         os.mkdir(exp_logs)
         
     # create folder to save the model
-    exp_saved_models = os.path.join(model_config["model_dir"], "saved_models")
+    exp_saved_models = os.path.join(model_config["model_dir"], "saved_models/analysis7/")
     if not os.path.exists(exp_saved_models):
         os.mkdir(exp_saved_models)
         
@@ -124,8 +124,8 @@ if __name__ == '__main__':
     model_config["exp_save_models_dir"] = exp_saved_models
     
     # file path for gradient checking and plotting
-    file_loc = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis4/"
-    model_config["file_loc"] = file_loc
+    #file_loc = "/afs/inf.ed.ac.uk/user/s18/s1890219/Thesis/CVAE/experiments/cvae/output_logs/analysis_1/"
+    #model_config["file_loc"] = file_loc
     # the parameter name suggest what to evaluate on
     model_config["test_user_item_interaction_dict"] = val_user_item_interaction_dict
     model_config["train_user_item_interaction_dict"] = train_user_item_interaction_dict
@@ -137,8 +137,8 @@ if __name__ == '__main__':
     criterion = torch.nn.CrossEntropyLoss()
     # size_average is set to False, the losses are instead summed for each minibatch
     #criterion.size_average = False
-    learning_rate = 1e-3 #5e-4
-    optimizer = torch.optim.Adam(model_cvae.parameters(), lr=learning_rate) 
+    learning_rate = 1e-4
+    optimizer = torch.optim.Adam(model_cvae.parameters(), lr=learning_rate, weight_decay=1e-5)
     
     '''for name, param in model_cvae.named_parameters():
             if name in ["items_embedding.weight", "response_embedding.weight",
@@ -159,8 +159,8 @@ if __name__ == '__main__':
             "num_items": num_items,
             "train_user_item_interaction_dict": train_user_item_interaction_dict,
             "test_user_item_interaction_dict": test_user_item_interaction_dict,
-            "exp_save_models_dir": "./experiments/cvae/saved_models/",
-            "slate_size": 5
+            "exp_save_models_dir": "./experiments/cvae/saved_models/analysis7/",
+            "slate_size": 10 # for different slate size
         }
         # Is there a better way to wrap large num of arguments
         precision, recall, user_test_metric = evaluate.evaluation(model_cvae, args, eval_config)
