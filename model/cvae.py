@@ -164,10 +164,10 @@ class CVAE(nn.Module):
         '''
         super().__init__()
         self.config = config
-        #self.users_embedding = nn.Embedding(config['num_users'], config['embedding_size'])
+        # self.users_embedding = nn.Embedding(config["num_users"], config["embedding_size"])
         self.items_embedding = nn.Embedding(config["num_items"], config["embedding_size"])
         self.response_embedding = nn.Embedding(config["response_dim"], config["embedding_size"])
-        self.users_embedding = nn.Embedding(config["num_users"], config["embedding_size"])
+        
         self.f_prior = FPrior(config)
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
@@ -179,9 +179,9 @@ class CVAE(nn.Module):
     def _init_weight_(self):
         # embeddings
         
+        #nn.init.xavier_uniform_(self.users_embedding.weight)        
         nn.init.xavier_uniform_(self.items_embedding.weight)
         nn.init.xavier_uniform_(self.response_embedding.weight)
-        nn.init.xavier_uniform_(self.users_embedding.weight)
         # xavier uniform just delay the convergence in comparison to standard normal
         #nn.init.normal_(self.items_embedding.weight, std = 0.01)
         #nn.init.normal_(self.response_embedding.weight, std = 0.01)
@@ -235,6 +235,7 @@ class CVAE(nn.Module):
         '''
         # user: [batch_size, embedding_size]
         # Padding could be an easier opCVAEtion
+        
         user = torch.empty((0,self.config["embedding_size"]))
         for i in range(user_repr.shape[0]):
             # required a numpy array for np.where with only condition as argument, \
@@ -248,6 +249,8 @@ class CVAE(nn.Module):
             single_user = torch.mean(self.items_embedding(user_interactions_tensor), dim=0).view(1,-1)
             user = torch.cat((user, single_user), dim=0)
         #user = torch.mean(self.items_embedding(user_repr), dim=1)
+        
+        # user = self.users_embedding(userId) # in case of user embedding
         
         # response representation, shape: [batch_size, embedding_size]
         response_repr = self.response_embedding(response_label)

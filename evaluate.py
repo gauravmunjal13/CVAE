@@ -73,7 +73,7 @@ def evaluation(model, args, config):
             
             # optimal response is getting max response
             #optimal_response_encoded = torch.Tensor([0,0,0,0,0,0,0,0,0,1,0])
-            optimal_response = torch.tensor([10])
+            optimal_response = torch.tensor([0])
             
             recommended_slate = model.inference( 
                                         user_repr, optimal_response, input_items, config)

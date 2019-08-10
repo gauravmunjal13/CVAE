@@ -53,7 +53,7 @@ def compute_loss(criterion, dot_product_output, slate,
     
     
 
-def train(model, data_loader, criterion, optimizer, config, epoch, file_loc):
+def train(model, data_loader, criterion, optimizer, config, epoch, file_loc, args):
     '''
     return the total epoch losses and every 2000 batches
     '''
@@ -83,18 +83,19 @@ def train(model, data_loader, criterion, optimizer, config, epoch, file_loc):
                             Variable(userId), Variable(user_repr), Variable(slate),\
                             Variable(response), Variable(response_label)
         
-        # forward pass
-        #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = model(user_repr, \
-        #                                              slate, response_label)
-        prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
-                                                      slate, response_label)
+        if args.model_type == "cvae":
+            # forward pass
+            #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = 
+            # model(user_repr, slate, response_label)
+            prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                                                     slate, response_label)
         
-        # compute the loss
-        #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
-        #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
-        reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
-                            slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"], epoch)
-        loss = reconstruction_loss + KL_loss
+            # compute the loss
+            #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
+            #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+            reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
+                                slate, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"], epoch)
+            loss = reconstruction_loss + KL_loss
         
         # zero the gradients
         optimizer.zero_grad()
@@ -145,7 +146,7 @@ def train(model, data_loader, criterion, optimizer, config, epoch, file_loc):
         
     return total_epoch_loss, epoch_losses, total_reconstruction_loss, total_KL_loss
 
-def validation(model, data_loader, criterion, config, epoch):
+def validation(model, data_loader, criterion, config, epoch, args):
     '''
     return the total epoch losses and every 2000 batches
     '''
@@ -176,19 +177,19 @@ def validation(model, data_loader, criterion, config, epoch):
                             Variable(userId), Variable(user_repr), Variable(slate),\
                             Variable(response), Variable(response_label)
         
-        # forward pass
-        #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = model(user_repr, \
-        #                                              slate, response_label)
-        prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
-                                                      slate, response_label)
-        
-        
-        # compute the loss
-        #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
-        #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
-        reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
-                            slate, z_mean, z_log_var, prior_mean, prior_log_var, config["batch_size"], epoch)
-        loss = reconstruction_loss + KL_loss
+        if args.model_type == "cvae":
+            # forward pass
+            #prior_mean, prior_log_var, z_mean, z_log_var, reconstructed_response_reshaped = model(user_repr, \
+            #                                              slate, response_label)
+            prior_mean, prior_log_var, z_mean, z_log_var, dot_product_output = model(user_repr, \
+                                                          slate, response_label)
+            
+            # compute the loss
+            #loss = compute_MSEloss(criterion, reconstructed_response_reshaped, 
+            #                    response, z_mean, z_log_var,  prior_mean, prior_log_var, config["batch_size"])
+            reconstruction_loss, KL_loss = compute_loss(criterion, dot_product_output, 
+                                slate, z_mean, z_log_var, prior_mean, prior_log_var, config["batch_size"], epoch)
+            loss = reconstruction_loss + KL_loss
         
         # print statistics
         running_loss += loss.item()
@@ -245,7 +246,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
         # need to pass the file_loc to do gradient checking during training
         
         train_epoch_loss, train_loss_batches, train_reconstruction_loss, train_KL_loss = train(
-                model, train_dataloader, criterion, optimizer, config, epoch, config["exp_logs_dir"])
+                model, train_dataloader, criterion, optimizer, config, epoch, config["exp_logs_dir"], args)
         
         epoch_loss["train_loss"].append(train_epoch_loss)
         loss_batches["train_loss"].append(train_loss_batches)
@@ -257,7 +258,7 @@ def train_and_val(model, train_dataloader, val_dataloader, criterion, optimizer,
         # and the best one
         
         val_loss, val_loss_batches, val_reconstruction_loss, val_KL_loss = validation(model,
-                                        val_dataloader, criterion, config, epoch)
+                                        val_dataloader, criterion, config, epoch, args)
         
         epoch_loss["val_loss"].append(val_loss)
         loss_batches["val_loss"].append(val_loss_batches)
